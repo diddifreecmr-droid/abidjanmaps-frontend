@@ -90,6 +90,35 @@ export async function fetchRouteProposalsMock(request: RouteRequest): Promise<Ro
       },
       score: 0.95,
       rank: 1,
+      score_breakdown: {
+        base: {
+          distance_component: 0.5,
+          duration_component: 0.3,
+          base_score: 0.8,
+        },
+        penalties: {
+          blocked: 0,
+          degraded: 0,
+          flood: 0,
+          control: 0,
+          unsafe_night: 0,
+          narrow_width: 0,
+          toll: 0,
+          seasonal: 0,
+          vehicle: 0,
+        },
+        vehicle_constraints: {
+          profile: 'car',
+          width_m: 1.8,
+          weight_t: 1.5,
+          forbidden: false,
+          overweight: false,
+          too_wide: false,
+          eligible: true,
+        },
+        total_score: 0.95,
+      },
+      enrichment: null,
     },
     {
       route: {
@@ -106,6 +135,35 @@ export async function fetchRouteProposalsMock(request: RouteRequest): Promise<Ro
       },
       score: 0.85,
       rank: 2,
+      score_breakdown: {
+        base: {
+          distance_component: 0.5,
+          duration_component: 0.3,
+          base_score: 0.8,
+        },
+        penalties: {
+          blocked: 0,
+          degraded: 0.05,
+          flood: 0,
+          control: 0,
+          unsafe_night: 0,
+          narrow_width: 0,
+          toll: 0,
+          seasonal: 0,
+          vehicle: 0,
+        },
+        vehicle_constraints: {
+          profile: 'car',
+          width_m: 1.8,
+          weight_t: 1.5,
+          forbidden: false,
+          overweight: false,
+          too_wide: false,
+          eligible: true,
+        },
+        total_score: 0.85,
+      },
+      enrichment: null,
     },
   ]
 
