@@ -1,8 +1,14 @@
 import { useCallback, useState } from 'react'
 import { fetchRouteProposals } from '../api/routeProposalsApi'
 import { fetchRouteProposalsMock } from '../api/routeProposalsApi.mock'
-import { RouteApiError, type RouteErrorCode, type RouteProposal } from '../types/route'
+import { RouteApiError, type RouteErrorCode, type RouteProposal, type RouteRequest, type VehicleProfile } from '../types/route'
 import type { RoutePoint } from './useRoutePoints'
+
+export interface RouteProposalsOptions {
+  profile?: VehicleProfile
+  vehicleWidthM?: number
+  vehicleWeightT?: number
+}
 
 const CLIENT_TIMEOUT_MS = 10000
 
@@ -43,15 +49,31 @@ function withClientTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 export function useRouteProposals() {
   const [state, setState] = useState<ProposalsState>(initialState)
 
-  const calculateProposals = useCallback(async (start: RoutePoint, end: RoutePoint) => {
+const calculateProposals = useCallback(async (
+    start: RoutePoint,
+    end: RoutePoint,
+    options?: RouteProposalsOptions
+  ) => {
     setState({ ...initialState, loading: true })
+
+    const request: RouteRequest = {
+      start,
+      end,
+      profile: options?.profile ?? 'car',
+      ...(options?.profile === 'truck' && options?.vehicleWidthM
+        ? { vehicle_width_m: options.vehicleWidthM }
+        : {}),
+      ...(options?.profile === 'truck' && options?.vehicleWeightT
+        ? { vehicle_weight_t: options.vehicleWeightT }
+        : {}),
+    }
 
     try {
       // Try real API first
       let proposals: RouteProposal[]
       try {
         proposals = await withClientTimeout(
-          fetchRouteProposals({ start, end, profile: 'car' }),
+          fetchRouteProposals(request),
           CLIENT_TIMEOUT_MS
         )
       } catch (err) {
@@ -59,7 +81,7 @@ export function useRouteProposals() {
         if (err instanceof RouteApiError && 
             (err.code === 'routing_engine_unavailable' || err.code === 'routing_timeout')) {
           console.warn('[useRouteProposals] Backend unavailable, using mock data')
-          proposals = await fetchRouteProposalsMock({ start, end, profile: 'car' })
+          proposals = await fetchRouteProposalsMock(request)
         } else {
           throw err
         }

@@ -1,68 +1,56 @@
 import { useState } from 'react'
-import type { RoadCreate } from '../types/localData'
+import type { RoadRead } from '../types/localData'
+import type { RoadUpdate } from '../api/roadsApi'
 
-interface AddRoadPanelProps {
-  onSubmit: (road: RoadCreate) => void
+interface EditRoadPanelProps {
+  road: RoadRead
+  onSubmit: (id: number, patch: RoadUpdate) => void
   onCancel: () => void
-  selectedCoordinates?: [number, number][]
+  submitting?: boolean
 }
 
-export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoadPanelProps) {
-  const [name, setName] = useState('')
-  const [surfaceState, setSurfaceState] = useState('')
-  const [seasonalPracticability, setSeasonalPracticability] = useState('')
-  const [surfaceReel, setSurfaceReel] = useState('')
-  const [pointControle, setPointControle] = useState('')
-  const [isBlocked, setIsBlocked] = useState(false)
-  const [eclairage, setEclairage] = useState<number | null>(null)
-  const [securiteNuit, setSecuriteNuit] = useState<number | null>(null)
- const [widthUsableM, setWidthUsableM] = useState<number | null>(null)
-  const [comment, setComment] = useState('')
+export function EditRoadPanel({ road, onSubmit, onCancel, submitting }: EditRoadPanelProps) {
+  const [name, setName] = useState(road.name)
+  const [surfaceState, setSurfaceState] = useState(road.surface_state)
+  const [seasonalPracticability, setSeasonalPracticability] = useState(road.seasonal_practicability)
+  const [surfaceReel, setSurfaceReel] = useState(road.surface_reel ?? '')
+  const [pointControle, setPointControle] = useState(road.point_controle ?? '')
+  const [isBlocked, setIsBlocked] = useState(road.is_blocked ?? false)
+  const [eclairage, setEclairage] = useState<number | null>(road.eclairage ?? null)
+  const [securiteNuit, setSecuriteNuit] = useState<number | null>(road.securite_nuit ?? null)
+  const [widthUsableM, setWidthUsableM] = useState<number | null>(road.width_usable_m ?? null)
+  const [note, setNote] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name || !selectedCoordinates || selectedCoordinates.length < 2) {
-      alert('Veuillez tracer une route sur la carte (minimum 2 points)')
-      return
-    }
-    if (!surfaceState || !seasonalPracticability) {
-      alert('Veuillez remplir l\'état de surface et la praticabilité saisonnière')
+    if (!name || !surfaceState || !seasonalPracticability) {
+      alert("Le nom, l'état de surface et la praticabilité saisonnière sont obligatoires")
       return
     }
 
-    const road: RoadCreate = {
+    const patch: RoadUpdate = {
       name,
-      geometry: {
-        type: 'LineString',
-        coordinates: selectedCoordinates,
-      },
       surface_state: surfaceState,
       seasonal_practicability: seasonalPracticability,
       surface_reel: surfaceReel || null,
       point_controle: pointControle || null,
       is_blocked: isBlocked,
-      eclairage: eclairage,
+      eclairage,
       securite_nuit: securiteNuit,
-     width_usable_m: widthUsableM,
-      extra_metadata: comment.trim() ? { comment: comment.trim() } : undefined,
+      width_usable_m: widthUsableM,
+      ...(note.trim() ? { note: note.trim() } : {}),
     }
 
-    onSubmit(road)
+    onSubmit(road.id, patch)
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4 w-80 max-h-96 overflow-auto">
-      <h3 className="font-semibold text-gray-800 mb-4">Ajouter une route</h3>
-      
-      {!selectedCoordinates || selectedCoordinates.length < 2 ? (
-        <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded mb-4">
-          Cliquez sur la carte pour tracer la route (minimum 2 points)
-        </div>
-      ) : (
-        <div className="text-sm text-green-600 bg-green-50 p-3 rounded mb-4">
-          {selectedCoordinates.length} points sélectionnés
-        </div>
-      )}
+    <div className="bg-white rounded-lg shadow-lg p-4 w-80 max-h-[28rem] overflow-auto">
+      <h3 className="font-semibold text-gray-800 mb-2">Modifier : {road.name}</h3>
+
+      <div className="text-xs text-amber-700 bg-amber-50 p-2 rounded mb-3">
+        Toute modification remet cette route en statut « proposée » — elle devra être revalidée par un admin.
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div>
@@ -72,7 +60,6 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full px-3 py-2 border rounded-md text-sm"
-            placeholder="Ex: Boulevard de la République"
             required
           />
         </div>
@@ -84,7 +71,6 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
             value={surfaceState}
             onChange={(e) => setSurfaceState(e.target.value)}
             className="w-full px-3 py-2 border rounded-md text-sm"
-            placeholder="Ex: Asphalte bon état, Latérite dégradée..."
             required
           />
         </div>
@@ -96,7 +82,6 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
             value={seasonalPracticability}
             onChange={(e) => setSeasonalPracticability(e.target.value)}
             className="w-full px-3 py-2 border rounded-md text-sm"
-            placeholder="Ex: Toute saison, Saison sèche uniquement..."
             required
           />
         </div>
@@ -108,7 +93,6 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
             value={surfaceReel}
             onChange={(e) => setSurfaceReel(e.target.value)}
             className="w-full px-3 py-2 border rounded-md text-sm"
-            placeholder="Ex: Latérite, Terre, Asphalte..."
           />
         </div>
 
@@ -119,21 +103,18 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
             value={pointControle}
             onChange={(e) => setPointControle(e.target.value)}
             className="w-full px-3 py-2 border rounded-md text-sm"
-            placeholder="Ex: Police, Douane, Mixte..."
           />
         </div>
 
-        <div className="space-y-2">
-          <label className="flex items-center space-x-2">
-            <input
-              type="checkbox"
-              checked={isBlocked}
-              onChange={(e) => setIsBlocked(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span className="text-sm">Route bloquée</span>
-          </label>
-        </div>
+        <label className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            checked={isBlocked}
+            onChange={(e) => setIsBlocked(e.target.checked)}
+            className="w-4 h-4"
+          />
+          <span className="text-sm">Route bloquée</span>
+        </label>
 
         <div className="grid grid-cols-2 gap-2">
           <div>
@@ -160,7 +141,7 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
           </div>
         </div>
 
-   <div>
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Largeur utilisable (m)</label>
           <input
             type="number"
@@ -171,12 +152,14 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Commentaire</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Note (raison de la modification)
+          </label>
           <textarea
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="Précisions utiles pour la validation (contexte, source de l'info...)"
+            placeholder="Ex: Signalement vérifié sur place"
             className="w-full px-3 py-2 border rounded-md text-sm"
           />
         </div>
@@ -184,9 +167,10 @@ export function AddRoadPanel({ onSubmit, onCancel, selectedCoordinates }: AddRoa
         <div className="flex space-x-2 pt-2">
           <button
             type="submit"
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md text-sm hover:bg-blue-700"
+            disabled={submitting}
+            className="flex-1 px-4 py-2 bg-blue-600 disabled:bg-blue-300 text-white rounded-md text-sm hover:bg-blue-700"
           >
-            Proposer
+            {submitting ? 'Envoi…' : 'Enregistrer'}
           </button>
           <button
             type="button"

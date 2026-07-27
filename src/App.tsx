@@ -8,8 +8,12 @@ import { AddRoadPanel } from './components/AddRoadPanel'
 import { AddPlacePanel } from './components/AddPlacePanel'
 import { RouteReportPanel } from './components/RouteReportPanel'
 import { LoginPanel } from './components/LoginPanel'
+import { HealthPanel } from './components/HealthPanel'
+import { useHealth } from './hooks/useHealth'
 import { useRoutePoints } from './hooks/useRoutePoints'
+import type { RoutePoint } from './hooks/useRoutePoints'
 import { useRouteProposals } from './hooks/useRouteProposals'
+import type { VehicleProfile } from './types/route'
 import { useJourneyTracking } from './hooks/useJourneyTracking'
 import { useRoads, useLayerVisibility } from './hooks/useRoads'
 import { usePlaces } from './hooks/usePlaces'
@@ -37,6 +41,11 @@ function App() {
     selectProposal,
     reset: resetProposals,
   } = useRouteProposals()
+
+  const [vehicleProfile, setVehicleProfile] = useState<VehicleProfile>('car')
+  const [vehicleWidthM, setVehicleWidthM] = useState<number | undefined>(undefined)
+  const [vehicleWeightT, setVehicleWeightT] = useState<number | undefined>(undefined)
+  const [focusPoint, setFocusPoint] = useState<RoutePoint | null>(null)
   const {
     status: journeyStatus,
     elapsedSeconds,
@@ -46,11 +55,20 @@ function App() {
     reset: resetJourney,
   } = useJourneyTracking()
 
-  const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRoad, reject: rejectRoad, create: createRoad } = useRoads()
-  const { places, loading: placesLoading, fetchAll: fetchPlaces, validate: validatePlace, reject: rejectPlace, create: createPlace } = usePlaces()
+const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRoad, reject: rejectRoad, create: createRoad, update: updateRoad } = useRoads()
+  const { places, loading: placesLoading, fetchAll: fetchPlaces, validate: validatePlace, reject: rejectPlace, create: createPlace, update: updatePlace } = usePlaces()
   const { visibility, toggleLayer } = useLayerVisibility()
   const { create: createRouteReport } = useRouteReports()
+  const { backend: healthBackend, database: healthDatabase, check: checkHealth } = useHealth()
+  const [showHealthPanel, setShowHealthPanel] = useState(false)
 
+  const handleToggleHealthPanel = () => {
+    setShowHealthPanel((prev) => {
+      const next = !prev
+      if (next) checkHealth()
+      return next
+    })
+  }
   const [mode, setMode] = useState<AppMode>('route')
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [showLoginPanel, setShowLoginPanel] = useState(false)
@@ -79,7 +97,11 @@ function App() {
 
   const handleCalculate = () => {
     if (pointA && pointB) {
-      calculateProposals(pointA, pointB)
+      calculateProposals(pointA, pointB, {
+        profile: vehicleProfile,
+        vehicleWidthM: vehicleProfile === 'truck' ? vehicleWidthM : undefined,
+        vehicleWeightT: vehicleProfile === 'truck' ? vehicleWeightT : undefined,
+      })
     }
   }
 
@@ -167,7 +189,7 @@ function App() {
 
   return (
     <div className="h-screen w-screen relative">
-      <MapView
+  <MapView
         pointA={pointA}
         pointB={pointB}
         routeGeometries={routeGeometries}
@@ -181,10 +203,11 @@ function App() {
         mode={mode}
         draftRoadCoordinates={roadCoordinates}
         draftPlaceCoordinate={placeCoordinate}
+        focusPoint={focusPoint}
       />
 
-      {/* Top Bar */}
-      <div className="absolute top-4 left-4 right-4 z-10 flex items-center justify-between">
+{/* Top Bar */}
+      <div className="absolute top-4 left-4 right-16 z-10 flex items-center justify-between">
         <div className="flex items-center space-x-2">
           {user ? (
             <div className="bg-white rounded-lg shadow px-3 py-2 flex items-center space-x-3">
@@ -237,6 +260,14 @@ function App() {
           )}
         </div>
 
+       <button
+          onClick={handleToggleHealthPanel}
+          className={`px-3 py-2 rounded-lg shadow text-sm transition-colors ${showHealthPanel ? 'bg-gray-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+          title="Diagnostic backend / base de données"
+        >
+          🩺 Diagnostic
+        </button>
+
         {user?.role === 'admin' && (
           <button
             onClick={() => setShowAdminPanel(!showAdminPanel)}
@@ -265,25 +296,41 @@ function App() {
         </div>
       )}
 
-      {showAdminPanel && user?.role === 'admin' && (
-        <div className="absolute top-20 right-4 z-10 w-96">
-          <AdminValidationPanel
-            roads={roads}
-            places={places}
-            loading={roadsLoading || placesLoading}
-            onValidateRoad={validateRoad}
-            onRejectRoad={rejectRoad}
-            onValidatePlace={validatePlace}
-            onRejectPlace={rejectPlace}
-            onRefresh={handleRefreshAdmin}
-          />
+ {(showHealthPanel || (showAdminPanel && user?.role === 'admin')) && (
+        <div className="absolute top-20 right-16 z-10 flex flex-col items-end gap-2">
+          {showHealthPanel && (
+            <HealthPanel
+              backend={healthBackend}
+              database={healthDatabase}
+              onCheck={checkHealth}
+              onClose={() => setShowHealthPanel(false)}
+            />
+          )}
+
+          {showAdminPanel && user?.role === 'admin' && (
+            <div className="w-96">
+              <AdminValidationPanel
+                roads={roads}
+                places={places}
+                loading={roadsLoading || placesLoading}
+                onValidateRoad={validateRoad}
+                onRejectRoad={rejectRoad}
+                onValidatePlace={validatePlace}
+                onRejectPlace={rejectPlace}
+                onUpdateRoad={async (id, patch) => { await updateRoad(id, patch) }}
+                onUpdatePlace={async (id, patch) => { await updatePlace(id, patch) }}
+                onFocusPoint={setFocusPoint}
+                onRefresh={handleRefreshAdmin}
+              />
+            </div>
+          )}
         </div>
       )}
 
       <div className="fixed md:absolute bottom-0 md:top-20 left-0 md:left-4 right-0 md:right-auto z-10 space-y-2">
         {mode === 'route' && (
           <>
-            <SelectionPanel
+ <SelectionPanel
               pointA={pointA}
               pointB={pointB}
               loading={loading}
@@ -294,6 +341,14 @@ function App() {
               onCalculate={handleCalculate}
               onReset={handleReset}
               onSelectProposal={selectProposal}
+              onSelectPointA={setPointA}
+              onSelectPointB={setPointB}
+              vehicleProfile={vehicleProfile}
+              onVehicleProfileChange={setVehicleProfile}
+              vehicleWidthM={vehicleWidthM}
+              onVehicleWidthMChange={setVehicleWidthM}
+              vehicleWeightT={vehicleWeightT}
+              onVehicleWeightTChange={setVehicleWeightT}
             />
             <JourneyTracker
               status={journeyStatus}

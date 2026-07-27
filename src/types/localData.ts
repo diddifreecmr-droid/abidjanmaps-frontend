@@ -45,8 +45,8 @@ export interface RoadHistoryEntry {
   id: number
   road_id: number
   field_name: string
-  old_value: string | null
-  new_value: string | null
+  old_value: unknown
+  new_value: unknown
   changed_by: number | null
   changed_at: string
 }
@@ -88,8 +88,8 @@ export interface PlaceHistoryEntry {
   id: number
   place_id: number
   field_name: string
-  old_value: string | null
-  new_value: string | null
+  old_value: unknown
+  new_value: unknown
   changed_by: number | null
   changed_at: string
 }

@@ -2,9 +2,11 @@ import { useState, useCallback } from 'react'
 import {
   fetchRoads,
   createRoad,
+  updateRoad,
   validateRoad,
   rejectRoad,
   fetchRoadsTaxonomy,
+  type RoadUpdate,
 } from '../api/roadsApi'
 import {
   fetchRoadsMock,
@@ -20,6 +22,7 @@ interface UseRoadsReturn {
   taxonomy: Record<string, string[]> | null
   fetchAll: (status?: 'proposed' | 'validated' | 'rejected') => Promise<void>
   create: (road: RoadCreate) => Promise<RoadRead>
+  update: (id: number, patch: RoadUpdate) => Promise<RoadRead>
   validate: (id: number) => Promise<void>
   reject: (id: number) => Promise<void>
   fetchTaxonomy: () => Promise<void>
@@ -65,6 +68,24 @@ export function useRoads(): UseRoadsReturn {
       return newRoad
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur lors de la création'
+      setError(message)
+      throw new Error(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const update = useCallback(async (id: number, patch: RoadUpdate): Promise<RoadRead> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const updated = await updateRoad(id, patch)
+      // Le backend remet la donnée en 'proposed' après modif — on reflète
+      // immédiatement ce nouvel état localement plutôt que d'attendre un refetch.
+      setRoads((prev) => prev.map((r) => (r.id === id ? updated : r)))
+      return updated
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur lors de la modification'
       setError(message)
       throw new Error(message)
     } finally {
@@ -126,6 +147,7 @@ export function useRoads(): UseRoadsReturn {
     taxonomy,
     fetchAll,
     create,
+    update,
     validate,
     reject,
     fetchTaxonomy,

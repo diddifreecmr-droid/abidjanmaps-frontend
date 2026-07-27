@@ -1,4 +1,12 @@
+import { useState } from 'react'
+import { useEntityHistory } from '../hooks/useEntityHistory'
+import HistoryList from './HistoryList'
+import { EditRoadPanel } from './EditRoadPanel'
+import { EditPlacePanel } from './EditPlacePanel'
+import type { RoadUpdate } from '../api/roadsApi'
+import type { PlaceUpdate } from '../api/placesApi'
 import type { RoadRead, PlaceRead } from '../types/localData'
+import type { RoutePoint } from '../hooks/useRoutePoints'
 
 interface AdminValidationPanelProps {
   roads: RoadRead[]
@@ -8,7 +16,16 @@ interface AdminValidationPanelProps {
   onRejectRoad: (id: number) => void
   onValidatePlace: (id: number) => void
   onRejectPlace: (id: number) => void
+  onUpdateRoad: (id: number, patch: RoadUpdate) => Promise<void>
+  onUpdatePlace: (id: number, patch: PlaceUpdate) => Promise<void>
+  onFocusPoint: (point: RoutePoint) => void
   onRefresh: () => void
+}
+
+function getRoadFocusPoint(road: RoadRead): RoutePoint {
+  const coords = road.geometry.coordinates
+  const [lng, lat] = coords[Math.floor(coords.length / 2)]
+  return { lat, lng }
 }
 
 export function AdminValidationPanel({
@@ -19,12 +36,60 @@ export function AdminValidationPanel({
   onRejectRoad,
   onValidatePlace,
   onRejectPlace,
+ onUpdateRoad,
+  onUpdatePlace,
+  onFocusPoint,
   onRefresh,
 }: AdminValidationPanelProps) {
   const safeRoads = roads || []
   const safePlaces = places || []
  const proposedRoads = safeRoads.filter((r) => r.validation_status === 'proposed')
   const proposedPlaces = safePlaces.filter((p) => p.validation_status === 'proposed')
+
+  const { load: loadHistory, getState: getHistoryState } = useEntityHistory()
+  const [openHistoryKeys, setOpenHistoryKeys] = useState<Set<string>>(new Set())
+
+  const [editingRoad, setEditingRoad] = useState<RoadRead | null>(null)
+  const [editingPlace, setEditingPlace] = useState<PlaceRead | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+
+  const handleSubmitRoadEdit = async (id: number, patch: RoadUpdate) => {
+    setSavingEdit(true)
+    try {
+      await onUpdateRoad(id, patch)
+      setEditingRoad(null)
+    } catch {
+      // L'erreur est déjà remontée via l'état `error` du hook parent (useRoads) ;
+      // on garde le formulaire ouvert pour laisser l'utilisateur corriger et réessayer.
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleSubmitPlaceEdit = async (id: number, patch: PlaceUpdate) => {
+    setSavingEdit(true)
+    try {
+      await onUpdatePlace(id, patch)
+      setEditingPlace(null)
+    } catch {
+      // idem
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+  const toggleHistory = (type: 'road' | 'place', id: number) => {
+    const key = `${type}:${id}`
+    setOpenHistoryKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+        loadHistory(type, id)
+      }
+      return next
+    })
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-md p-4 max-h-96 overflow-auto">
@@ -63,7 +128,26 @@ export function AdminValidationPanel({
                       <p className="text-xs text-red-500 mt-1">⚠️ Route bloquée</p>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+<div className="flex space-x-2">
+                    <button
+                      onClick={() => onFocusPoint(getRoadFocusPoint(road))}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                      title="Centrer la carte sur cette route"
+                    >
+                      📍 Carte
+                    </button>
+                    <button
+                      onClick={() => setEditingRoad(road)}
+                      className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      onClick={() => toggleHistory('road', road.id)}
+                      className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                    >
+                      {openHistoryKeys.has(`road:${road.id}`) ? 'Masquer' : 'Historique'}
+                    </button>
                     <button
                       onClick={() => onValidateRoad(road.id)}
                       className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
@@ -78,11 +162,20 @@ export function AdminValidationPanel({
                     </button>
                   </div>
                 </div>
+                {openHistoryKeys.has(`road:${road.id}`) && (
+                  <HistoryList
+                    entries={getHistoryState('road', road.id).entries}
+                    loading={getHistoryState('road', road.id).loading}
+                    error={getHistoryState('road', road.id).error}
+                  />
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
+
+    
 
       {/* Places Section */}
       <div>
@@ -107,7 +200,26 @@ export function AdminValidationPanel({
                       <p className="text-xs text-gray-400 mt-1">{place.description}</p>
                     )}
                   </div>
-                  <div className="flex space-x-2">
+        <div className="flex space-x-2">
+                    <button
+                      onClick={() => onFocusPoint(place.location)}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+                      title="Centrer la carte sur ce lieu"
+                    >
+                      📍 Carte
+                    </button>
+                    <button
+                      onClick={() => setEditingPlace(place)}
+                      className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                    >
+                      Modifier
+                    </button>
+                    <button
+                      onClick={() => toggleHistory('place', place.id)}
+                      className="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                    >
+                      {openHistoryKeys.has(`place:${place.id}`) ? 'Masquer' : 'Historique'}
+                    </button>
                     <button
                       onClick={() => onValidatePlace(place.id)}
                       className="px-2 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700"
@@ -122,11 +234,40 @@ export function AdminValidationPanel({
                     </button>
                   </div>
                 </div>
+                {openHistoryKeys.has(`place:${place.id}`) && (
+                  <HistoryList
+                    entries={getHistoryState('place', place.id).entries}
+                    loading={getHistoryState('place', place.id).loading}
+                    error={getHistoryState('place', place.id).error}
+                  />
+                )}
               </div>
             ))}
           </div>
         )}
-      </div>
+</div>
+
+      {editingRoad && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <EditRoadPanel
+            road={editingRoad}
+            onSubmit={handleSubmitRoadEdit}
+            onCancel={() => setEditingRoad(null)}
+            submitting={savingEdit}
+          />
+        </div>
+      )}
+
+      {editingPlace && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <EditPlacePanel
+            place={editingPlace}
+            onSubmit={handleSubmitPlaceEdit}
+            onCancel={() => setEditingPlace(null)}
+            submitting={savingEdit}
+          />
+        </div>
+      )}
     </div>
   )
 }

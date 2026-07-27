@@ -1,10 +1,14 @@
 // Types TypeScript pour la requête/réponse de l'API de routage
 // Contrat API — voir document "Contrat API — AbidjanMaps"
 
+export type VehicleProfile = 'car' | 'motorcycle' | 'truck'
+
 export interface RouteRequest {
   start: { lat: number; lng: number }
   end: { lat: number; lng: number }
-  profile: 'car'
+  profile: VehicleProfile
+  vehicle_width_m?: number
+  vehicle_weight_t?: number
 }
 
 export interface RouteGeometry {

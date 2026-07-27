@@ -2,8 +2,10 @@ import { useState, useCallback } from 'react'
 import {
   fetchPlaces,
   createPlace,
+  updatePlace,
   validatePlace,
   rejectPlace,
+  type PlaceUpdate,
 } from '../api/placesApi'
 import {
   fetchPlacesMock,
@@ -18,6 +20,7 @@ interface UsePlacesReturn {
   error: string | null
   fetchAll: (status?: 'proposed' | 'validated' | 'rejected') => Promise<void>
   create: (place: PlaceCreate) => Promise<PlaceRead>
+  update: (id: number, patch: PlaceUpdate) => Promise<PlaceRead>
   validate: (id: number) => Promise<void>
   reject: (id: number) => Promise<void>
 }
@@ -58,6 +61,22 @@ export function usePlaces(): UsePlacesReturn {
       return newPlace
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erreur lors de la création'
+      setError(message)
+      throw new Error(message)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  const update = useCallback(async (id: number, patch: PlaceUpdate): Promise<PlaceRead> => {
+    setLoading(true)
+    setError(null)
+    try {
+      const updated = await updatePlace(id, patch)
+      setPlaces((prev) => prev.map((p) => (p.id === id ? updated : p)))
+      return updated
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Erreur lors de la modification'
       setError(message)
       throw new Error(message)
     } finally {
@@ -109,6 +128,7 @@ export function usePlaces(): UsePlacesReturn {
     error,
     fetchAll,
     create,
+    update,
     validate,
     reject,
   }

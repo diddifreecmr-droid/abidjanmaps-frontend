@@ -57,6 +57,19 @@ export async function getRoad(id: number): Promise<RoadRead> {
   return handleResponse<RoadRead>(response)
 }
 
+export interface RoadUpdate extends Partial<RoadCreate> {
+  note?: string
+}
+
+export async function updateRoad(id: number, patch: RoadUpdate): Promise<RoadRead> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/roads/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(patch),
+  })
+  return handleResponse<RoadRead>(response)
+}
+
 export async function validateRoad(id: number): Promise<RoadRead> {
   const response = await fetch(`${API_BASE_URL}/api/v1/roads/${id}/validate`, {
     method: 'POST',

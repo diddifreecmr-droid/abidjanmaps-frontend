@@ -51,6 +51,8 @@ interface MapViewProps {
   mode?: 'route' | 'add-road' | 'add-place' | 'report-road'
   draftRoadCoordinates?: [number, number][]
   draftPlaceCoordinate?: [number, number]
+  // Admin: centrer la carte sur un élément (route ou lieu) sélectionné dans le panneau admin
+  focusPoint?: RoutePoint | null
 }
 
 function MapView({
@@ -67,6 +69,7 @@ function MapView({
   mode = 'route',
   draftRoadCoordinates = [],
   draftPlaceCoordinate,
+  focusPoint = null,
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -283,11 +286,17 @@ function MapView({
       onMapClick({ lat: e.lngLat.lat, lng: e.lngLat.lng })
     }
 
-    map.on('click', onClick)
+   map.on('click', onClick)
     return () => {
       map.off('click', onClick)
     }
   }, [onMapClick])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !focusPoint) return
+    map.flyTo({ center: [focusPoint.lng, focusPoint.lat], zoom: 16, duration: 600 })
+  }, [focusPoint])
 
   const handleUseCurrentLocation = () => {
     const map = mapRef.current

@@ -67,6 +67,19 @@ export async function getPlace(id: number): Promise<PlaceRead> {
   return handleResponse<PlaceRead>(response)
 }
 
+export interface PlaceUpdate extends Partial<PlaceCreate> {
+  note?: string
+}
+
+export async function updatePlace(id: number, patch: PlaceUpdate): Promise<PlaceRead> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/places/${id}`, {
+    method: 'PATCH',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(patch),
+  })
+  return handleResponse<PlaceRead>(response)
+}
+
 export async function validatePlace(id: number): Promise<PlaceRead> {
   const response = await fetch(`${API_BASE_URL}/api/v1/places/${id}/validate`, {
     method: 'POST',
