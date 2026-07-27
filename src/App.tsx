@@ -10,6 +10,8 @@ import { RouteReportPanel } from './components/RouteReportPanel'
 import { LoginPanel } from './components/LoginPanel'
 import { HealthPanel } from './components/HealthPanel'
 import { useHealth } from './hooks/useHealth'
+import { UsersAdminPanel } from './components/UsersAdminPanel'
+import { useUsers } from './hooks/useUsers'
 import { useRoutePoints } from './hooks/useRoutePoints'
 import type { RoutePoint } from './hooks/useRoutePoints'
 import { useRouteProposals } from './hooks/useRouteProposals'
@@ -66,6 +68,17 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
     setShowHealthPanel((prev) => {
       const next = !prev
       if (next) checkHealth()
+      return next
+    })
+  }
+
+  const { users, loading: usersLoading, error: usersError, fetchAll: fetchUsersAll, create: createUser } = useUsers()
+  const [showUsersPanel, setShowUsersPanel] = useState(false)
+
+  const handleToggleUsersPanel = () => {
+    setShowUsersPanel((prev) => {
+      const next = !prev
+      if (next) fetchUsersAll()
       return next
     })
   }
@@ -270,6 +283,16 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
 
         {user?.role === 'admin' && (
           <button
+            onClick={handleToggleUsersPanel}
+            className={`px-3 py-2 rounded-lg shadow text-sm transition-colors ${showUsersPanel ? 'bg-gray-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            title="Administration des utilisateurs"
+          >
+            👤 Utilisateurs
+          </button>
+        )}
+
+        {user?.role === 'admin' && (
+          <button
             onClick={() => setShowAdminPanel(!showAdminPanel)}
             className={`px-4 py-2 rounded-lg shadow transition-colors ${showAdminPanel ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
           >
@@ -296,7 +319,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
         </div>
       )}
 
- {(showHealthPanel || (showAdminPanel && user?.role === 'admin')) && (
+{(showHealthPanel || showUsersPanel || (showAdminPanel && user?.role === 'admin')) && (
         <div className="absolute top-20 right-16 z-10 flex flex-col items-end gap-2">
           {showHealthPanel && (
             <HealthPanel
@@ -304,6 +327,17 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
               database={healthDatabase}
               onCheck={checkHealth}
               onClose={() => setShowHealthPanel(false)}
+            />
+          )}
+
+          {showUsersPanel && user?.role === 'admin' && (
+            <UsersAdminPanel
+              users={users}
+              loading={usersLoading}
+              error={usersError}
+              onCreate={async (u) => { await createUser(u) }}
+              onRefresh={fetchUsersAll}
+              onClose={() => setShowUsersPanel(false)}
             />
           )}
 
