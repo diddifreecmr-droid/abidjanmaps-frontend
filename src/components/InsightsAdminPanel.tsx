@@ -11,6 +11,7 @@ const INSIGHT_TYPE_LABELS: Record<string, string> = {
   possible_detour: 'Détour possible',
   gps_time_gap: 'Trou GPS',
   suspicious_gps_jump: 'Saut GPS filtré',
+  low_point_count: 'Peu de points GPS',
 }
 
 const INSIGHT_TYPE_ICONS: Record<string, string> = {
@@ -21,6 +22,7 @@ const INSIGHT_TYPE_ICONS: Record<string, string> = {
   possible_detour: '↪️',
   gps_time_gap: '📡',
   suspicious_gps_jump: '⚡',
+  low_point_count: '📍',
 }
 
 function insightTypeLabel(type: string): string {

@@ -45,6 +45,7 @@ function fmtDate(iso: string | null | undefined): string {
 
 function qualityConfig(label: QualityLabel | null): { text: string; cls: string } {
   if (label === 'good') return { text: 'Bonne trace', cls: 'bg-green-100 text-green-700' }
+  if (label === 'usable') return { text: 'Trace exploitable', cls: 'bg-blue-100 text-blue-700' }
   if (label === 'average') return { text: 'Trace correcte', cls: 'bg-yellow-100 text-yellow-700' }
   if (label === 'poor') return { text: 'Trace faible', cls: 'bg-red-100 text-red-700' }
   return { text: '—', cls: 'bg-gray-100 text-gray-500' }

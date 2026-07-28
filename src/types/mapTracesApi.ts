@@ -60,7 +60,7 @@ export interface MapTraceFinishPayload {
 
 // --- Phase 3 V2 : Analyse des traces GPS ---
 
-export type QualityLabel = 'good' | 'average' | 'poor'
+export type QualityLabel = 'good' | 'usable' | 'average' | 'poor'
 export type AnalysisRecommendation = 'ok' | 'review_needed' | 'discard'
 
 export interface MapTraceAnalysisEvent {

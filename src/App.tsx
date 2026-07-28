@@ -204,7 +204,7 @@ function App() {
       profile: vehicleProfile,
       planned_distance_m: selectedProposal?.route.distance_m ?? null,
       planned_duration_s: selectedProposal?.route.duration_s ?? null,
-      planned_route_geometry: selectedProposal?.route.geometry as Record<string, unknown> ?? null,
+      planned_route_geometry: (selectedProposal?.route.geometry as unknown as Record<string, unknown>) ?? null,
     })
   }, [pointA, pointB, proposals, selectedIndex, vehicleProfile, startJourney])
 
