@@ -11,6 +11,8 @@ import { LoginPanel } from './components/LoginPanel'
 import { HealthPanel } from './components/HealthPanel'
 import { MyTracesPanel } from './components/MyTracesPanel'
 import { TraceDetailPanel } from './components/TraceDetailPanel'
+import { InsightsAdminPanel } from './components/InsightsAdminPanel'
+import { useInsights } from './hooks/useInsights'
 import { useHealth } from './hooks/useHealth'
 import { UsersAdminPanel } from './components/UsersAdminPanel'
 import { useUsers } from './hooks/useUsers'
@@ -93,6 +95,24 @@ function App() {
   const { places, loading: placesLoading, fetchAll: fetchPlaces, validate: validatePlace, reject: rejectPlace, create: createPlace, update: updatePlace } = usePlaces()
   const { visibility, toggleLayer } = useLayerVisibility()
   const { create: createRouteReport } = useRouteReports()
+  const {
+    reviewQueue, candidates, allInsights,
+    loading: insightsLoading, error: insightsError,
+    actionLoading: insightActionLoading, actionError: insightActionError,
+    lastConverted,
+    fetchReviewQueue, fetchCandidates, fetchAll: fetchAllInsights,
+    validate: validateInsight, reject: rejectInsight, convert: convertInsight,
+    clearActionError: clearInsightActionError,
+  } = useInsights()
+  const [showInsightsPanel, setShowInsightsPanel] = useState(false)
+
+  const handleToggleInsightsPanel = () => {
+    setShowInsightsPanel((prev) => {
+      if (!prev) fetchReviewQueue()
+      return !prev
+    })
+  }
+
   const { backend: healthBackend, database: healthDatabase, check: checkHealth } = useHealth()
   const [showHealthPanel, setShowHealthPanel] = useState(false)
 
@@ -418,6 +438,15 @@ function App() {
 
           {user?.role === 'admin' && (
             <button
+              onClick={handleToggleInsightsPanel}
+              className={`px-3 py-2 rounded-lg shadow text-sm transition-colors ${showInsightsPanel ? 'bg-indigo-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+              title="Insights Map Core"
+            >
+              🔍 Insights
+            </button>
+          )}
+          {user?.role === 'admin' && (
+            <button
               onClick={() => setShowAdminPanel(!showAdminPanel)}
               className={`px-4 py-2 rounded-lg shadow transition-colors ${showAdminPanel ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
             >
@@ -450,6 +479,14 @@ function App() {
                   className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                 >
                   👤 Utilisateurs
+                </button>
+              )}
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => { handleToggleInsightsPanel(); setShowMobileToolsMenu(false) }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  🔍 Insights
                 </button>
               )}
               {user?.role === 'admin' && (
@@ -521,6 +558,35 @@ function App() {
             onCreate={async (u) => { await createUser(u) }}
             onRefresh={fetchUsersAll}
             onClose={() => setShowUsersPanel(false)}
+          />
+        </div>
+      )}
+
+      {showInsightsPanel && user?.role === 'admin' && (
+        <div
+          className={
+            isMobile
+              ? 'fixed inset-0 z-40 bg-white overflow-y-auto p-4 [&>div]:w-full [&>div]:max-h-none [&>div]:shadow-none [&>div]:rounded-none'
+              : 'absolute top-20 right-16 z-10'
+          }
+        >
+          <InsightsAdminPanel
+            reviewQueue={reviewQueue}
+            candidates={candidates}
+            allInsights={allInsights}
+            loading={insightsLoading}
+            error={insightsError}
+            actionLoading={insightActionLoading}
+            actionError={insightActionError}
+            lastConverted={lastConverted}
+            onFetchQueue={fetchReviewQueue}
+            onFetchCandidates={fetchCandidates}
+            onFetchAll={fetchAllInsights}
+            onValidate={validateInsight}
+            onReject={rejectInsight}
+            onConvert={convertInsight}
+            onClearActionError={clearInsightActionError}
+            onClose={() => setShowInsightsPanel(false)}
           />
         </div>
       )}
