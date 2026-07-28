@@ -50,6 +50,16 @@ function App() {
   const [vehicleWidthM, setVehicleWidthM] = useState<number | undefined>(undefined)
   const [vehicleWeightT, setVehicleWeightT] = useState<number | undefined>(undefined)
   const [focusPoint, setFocusPoint] = useState<RoutePoint | null>(null)
+
+  const handleSelectPointA = (point: RoutePoint) => {
+    setPointA(point)
+    setFocusPoint(point)
+  }
+
+  const handleSelectPointB = (point: RoutePoint) => {
+    setPointB(point)
+    setFocusPoint(point)
+  }
   const {
     status: journeyStatus,
     elapsedSeconds,
@@ -470,8 +480,8 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
                   onCalculate={handleCalculate}
                   onReset={handleReset}
                   onSelectProposal={selectProposal}
-                  onSelectPointA={setPointA}
-                  onSelectPointB={setPointB}
+                 onSelectPointA={handleSelectPointA}
+                  onSelectPointB={handleSelectPointB}
                   vehicleProfile={vehicleProfile}
                   onVehicleProfileChange={setVehicleProfile}
                   vehicleWidthM={vehicleWidthM}
