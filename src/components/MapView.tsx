@@ -16,6 +16,10 @@ const PLACES_LAYER_ID = 'local-places-layer'
 const DRAFT_SOURCE_ID = 'draft-points-source'
 const DRAFT_LAYER_ID = 'draft-points-layer'
 const DRAFT_LINE_LAYER_ID = 'draft-line-layer'
+const TRACE_PLANNED_SOURCE_ID = 'trace-planned-source'
+const TRACE_PLANNED_LAYER_ID = 'trace-planned-layer'
+const TRACE_ACTUAL_SOURCE_ID = 'trace-actual-source'
+const TRACE_ACTUAL_LAYER_ID = 'trace-actual-layer'
 
 function createMarkerElement(color: string) {
   const el = document.createElement('div')
@@ -53,6 +57,11 @@ interface MapViewProps {
   draftPlaceCoordinate?: [number, number]
   // Admin: centrer la carte sur un élément (route ou lieu) sélectionné dans le panneau admin
   focusPoint?: RoutePoint | null
+  // Phase 3: visualisation de trace GPS (route prévue + trace réelle)
+  traceDetailGeometries?: {
+    plannedCoords: [number, number][] | null
+    actualCoords: [number, number][]
+  } | null
 }
 
 function MapView({
@@ -70,6 +79,7 @@ function MapView({
   draftRoadCoordinates = [],
   draftPlaceCoordinate,
   focusPoint = null,
+  traceDetailGeometries = null,
 }: MapViewProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -162,6 +172,35 @@ function MapView({
           'text-halo-width': 2,
         },
         filter: ['==', ['get', 'visible'], true],
+      })
+
+      // Phase 3: trace GPS — route prévue (tirets teal)
+      map.addSource(TRACE_PLANNED_SOURCE_ID, emptyGeoJsonSource())
+      map.addLayer({
+        id: TRACE_PLANNED_LAYER_ID,
+        type: 'line',
+        source: TRACE_PLANNED_SOURCE_ID,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#0d9488',
+          'line-width': 3,
+          'line-opacity': 0.9,
+          'line-dasharray': [4, 3],
+        },
+      })
+
+      // Phase 3: trace GPS — parcours réel (orange plein)
+      map.addSource(TRACE_ACTUAL_SOURCE_ID, emptyGeoJsonSource())
+      map.addLayer({
+        id: TRACE_ACTUAL_LAYER_ID,
+        type: 'line',
+        source: TRACE_ACTUAL_SOURCE_ID,
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#ea580c',
+          'line-width': 4,
+          'line-opacity': 0.9,
+        },
       })
 
       // Draft points layer (for adding roads/places)
@@ -410,6 +449,70 @@ function MapView({
       map.once('load', applyRoutes)
     }
   }, [routeGeometries, selectedRouteIndex])
+
+  // Phase 3: mise à jour des layers de trace GPS
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !isStyleReadyRef.current) return
+
+    const applyTrace = () => {
+      const plannedSource = map.getSource(TRACE_PLANNED_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
+      const actualSource = map.getSource(TRACE_ACTUAL_SOURCE_ID) as maplibregl.GeoJSONSource | undefined
+
+      if (!traceDetailGeometries) {
+        plannedSource?.setData({ type: 'FeatureCollection', features: [] })
+        actualSource?.setData({ type: 'FeatureCollection', features: [] })
+        return
+      }
+
+      const { plannedCoords, actualCoords } = traceDetailGeometries
+
+      if (plannedSource && plannedCoords && plannedCoords.length >= 2) {
+        plannedSource.setData({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: plannedCoords },
+          }],
+        })
+      } else {
+        plannedSource?.setData({ type: 'FeatureCollection', features: [] })
+      }
+
+      if (actualSource && actualCoords.length >= 2) {
+        actualSource.setData({
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: actualCoords },
+          }],
+        })
+      } else {
+        actualSource?.setData({ type: 'FeatureCollection', features: [] })
+      }
+
+      // Centrer la carte sur la trace
+      const allCoords = [
+        ...(plannedCoords ?? []),
+        ...actualCoords,
+      ]
+      if (allCoords.length >= 2) {
+        const bounds = allCoords.reduce(
+          (b, coord) => b.extend(coord as [number, number]),
+          new maplibregl.LngLatBounds(allCoords[0] as [number, number], allCoords[0] as [number, number])
+        )
+        map.fitBounds(bounds, { padding: 60, maxZoom: MAP_ZOOM.max, duration: 500 })
+      }
+    }
+
+    if (isStyleReadyRef.current) {
+      applyTrace()
+    } else {
+      map.once('load', applyTrace)
+    }
+  }, [traceDetailGeometries])
 
   // Phase 2: Update local data layers based on visibility
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import MapView from './components/MapView'
 import SelectionPanel from './components/SelectionPanel'
 import JourneyTracker from './components/JourneyTracker'
@@ -9,6 +9,8 @@ import { AddPlacePanel } from './components/AddPlacePanel'
 import { RouteReportPanel } from './components/RouteReportPanel'
 import { LoginPanel } from './components/LoginPanel'
 import { HealthPanel } from './components/HealthPanel'
+import { MyTracesPanel } from './components/MyTracesPanel'
+import { TraceDetailPanel } from './components/TraceDetailPanel'
 import { useHealth } from './hooks/useHealth'
 import { UsersAdminPanel } from './components/UsersAdminPanel'
 import { useUsers } from './hooks/useUsers'
@@ -19,6 +21,7 @@ import { BottomSheet } from './components/BottomSheet'
 import { useRouteProposals } from './hooks/useRouteProposals'
 import type { VehicleProfile } from './types/route'
 import { useJourneyTracking } from './hooks/useJourneyTracking'
+import { useMapTraces } from './hooks/useMapTraces'
 import { useRoads, useLayerVisibility } from './hooks/useRoads'
 import { usePlaces } from './hooks/usePlaces'
 import { useRouteReports } from './hooks/useRouteReports'
@@ -32,7 +35,7 @@ import {
   type UserProfile,
 } from './api/authApi'
 
-type AppMode = 'route' | 'add-road' | 'add-place' | 'report-road'
+type AppMode = 'route' | 'add-road' | 'add-place' | 'report-road' | 'traces' | 'trace-detail'
 
 function App() {
   const { pointA, pointB, setPointA, setPointB, handleMapClick, reset: resetPoints } = useRoutePoints()
@@ -60,16 +63,29 @@ function App() {
     setPointB(point)
     setFocusPoint(point)
   }
+
   const {
     status: journeyStatus,
     elapsedSeconds,
     distanceMeters,
+    error: journeyError,
+    finishedTrace,
     startJourney,
     finishJourney,
     reset: resetJourney,
   } = useJourneyTracking()
 
-const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRoad, reject: rejectRoad, create: createRoad, update: updateRoad } = useRoads()
+  const {
+    traces,
+    currentTrace,
+    loading: tracesLoading,
+    error: tracesError,
+    fetchAll: fetchTraces,
+    fetchOne: fetchTrace,
+    clearCurrent: clearCurrentTrace,
+  } = useMapTraces()
+
+  const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRoad, reject: rejectRoad, create: createRoad, update: updateRoad } = useRoads()
   const { places, loading: placesLoading, fetchAll: fetchPlaces, validate: validatePlace, reject: rejectPlace, create: createPlace, update: updatePlace } = usePlaces()
   const { visibility, toggleLayer } = useLayerVisibility()
   const { create: createRouteReport } = useRouteReports()
@@ -94,7 +110,6 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
     })
   }
 
-  // Menu "⋮" mobile qui regroupe les outils secondaires (Diagnostic/Utilisateurs/Admin)
   const [showMobileToolsMenu, setShowMobileToolsMenu] = useState(false)
   const [mode, setMode] = useState<AppMode>('route')
   const [showAdminPanel, setShowAdminPanel] = useState(false)
@@ -106,15 +121,12 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
   const [placeCoordinate, setPlaceCoordinate] = useState<[number, number] | undefined>()
   const [reportCoordinate, setReportCoordinate] = useState<[number, number] | undefined>()
   const isMobile = useIsMobile()
-  // On mount: if token exists, verify it with /users/me
+
   useEffect(() => {
     if (isLoggedIn()) {
       fetchProfile()
         .then(setUser)
-        .catch(() => {
-          // Token invalid — already cleared by fetchProfile
-          setUser(null)
-        })
+        .catch(() => { setUser(null) })
     }
     fetchRoads('validated')
     fetchPlaces('validated')
@@ -137,7 +149,9 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
     resetProposals()
   }
 
-  const routeGeometries = proposals.map((p) => p.route.geometry)
+  const routeGeometries = mode === 'trace-detail'
+    ? []
+    : proposals.map((p) => p.route.geometry)
 
   const handleRefreshAdmin = () => {
     fetchRoads('proposed')
@@ -155,6 +169,66 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
       setReportCoordinate([point.lng, point.lat])
     }
   }
+
+  // Phase 3: démarrer une collecte avec les données de la route sélectionnée
+  const handleStartJourney = useCallback(() => {
+    if (!pointA || !pointB) return
+    const selectedProposal = proposals[selectedIndex]
+    startJourney({
+      start: pointA,
+      end: pointB,
+      profile: vehicleProfile,
+      planned_distance_m: selectedProposal?.route.distance_m ?? null,
+      planned_duration_s: selectedProposal?.route.duration_s ?? null,
+      planned_route_geometry: selectedProposal?.route.geometry as Record<string, unknown> ?? null,
+    })
+  }, [pointA, pointB, proposals, selectedIndex, vehicleProfile, startJourney])
+
+  // Phase 3: afficher le détail d'une collecte
+  const handleViewTraceDetail = useCallback((traceId: number) => {
+    fetchTrace(traceId)
+    setMode('trace-detail')
+  }, [fetchTrace])
+
+  // Phase 3: revenir à la liste des collectes
+  const handleBackToTraces = useCallback(() => {
+    clearCurrentTrace()
+    setMode('traces')
+  }, [clearCurrentTrace])
+
+  // Phase 3: ouvrir le détail de la collecte qui vient de se terminer
+  const handleViewFinishedDetail = useCallback(() => {
+    if (finishedTrace) {
+      handleViewTraceDetail(finishedTrace.id)
+    }
+  }, [finishedTrace, handleViewTraceDetail])
+
+  // Phase 3: ouvrir la liste des collectes
+  const handleOpenTraces = useCallback(() => {
+    setMode('traces')
+    fetchTraces()
+  }, [fetchTraces])
+
+  // Phase 3: fermer le panneau traces/détail
+  const handleCloseTraces = useCallback(() => {
+    clearCurrentTrace()
+    setMode('route')
+  }, [clearCurrentTrace])
+
+  // Phase 3: géométries pour la carte (trace prévue + réelle)
+  const traceDetailGeometries = useMemo(() => {
+    if (mode !== 'trace-detail' || !currentTrace) return null
+    const geo = currentTrace.planned_route_geometry as { coordinates?: [number, number][] } | null
+    const plannedCoords = geo?.coordinates ?? null
+    const actualCoords = currentTrace.positions.map(
+      (p) => [p.location.lng, p.location.lat] as [number, number]
+    )
+    return { plannedCoords, actualCoords }
+  }, [mode, currentTrace])
+
+  // Props pour JourneyTracker
+  const selectedProposal = proposals[selectedIndex]
+  const journeyCanStart = Boolean(pointA && pointB && user)
 
   const handleAddRoad = async (road: RoadCreate) => {
     try {
@@ -205,6 +279,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
     setUser(null)
     setShowAdminPanel(false)
     setMode('route')
+    resetJourney()
   }
 
   const handleCancelAdd = () => {
@@ -216,7 +291,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
 
   return (
     <div className="h-screen w-screen relative">
-  <MapView
+      <MapView
         pointA={pointA}
         pointB={pointB}
         routeGeometries={routeGeometries}
@@ -227,18 +302,18 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
         roads={roads}
         places={places}
         layerVisibility={visibility}
-        mode={mode}
+        mode={mode === 'traces' || mode === 'trace-detail' ? 'route' : mode}
         draftRoadCoordinates={roadCoordinates}
         draftPlaceCoordinate={placeCoordinate}
         focusPoint={focusPoint}
+        traceDetailGeometries={traceDetailGeometries}
       />
 
-{/* Top Bar */}
+      {/* Top Bar */}
       <div className="absolute top-2 left-2 right-12 md:top-4 md:left-4 md:right-16 z-10 flex items-center justify-between gap-2">
         <div className="flex items-center space-x-2 shrink-0">
           {user ? (
             <div className="bg-white rounded-lg shadow px-2 py-2 md:px-3 flex items-center space-x-2 md:space-x-3">
-              {/* Desktop: email complet. Mobile: juste une pastille avec l'initiale, pour ne pas manger la largeur */}
               <span className="hidden md:inline text-sm font-medium">{user.email}</span>
               <span
                 className="md:hidden w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold"
@@ -265,7 +340,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
 
         <div className="flex items-center gap-0.5 md:space-x-2 bg-white rounded-lg shadow p-1 overflow-x-auto max-w-full">
           <button
-            onClick={() => setMode('route')}
+            onClick={() => { setMode('route'); clearCurrentTrace() }}
             title="Itinéraire"
             className={`px-2.5 md:px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${mode === 'route' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
           >
@@ -274,6 +349,14 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
           </button>
           {user && (
             <>
+              <button
+                onClick={handleOpenTraces}
+                title="Mes collectes GPS"
+                className={`px-2.5 md:px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${(mode === 'traces' || mode === 'trace-detail') ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+              >
+                <span className="md:hidden">📡</span>
+                <span className="hidden md:inline">Collectes</span>
+              </button>
               <button
                 onClick={() => setMode('add-road')}
                 title="Ajouter une route"
@@ -302,7 +385,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
           )}
         </div>
 
-        {/* Desktop: outils secondaires affichés en permanence */}
+        {/* Desktop: outils secondaires */}
         <div className="hidden md:flex items-center space-x-2 shrink-0">
           <button
             onClick={handleToggleHealthPanel}
@@ -332,7 +415,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
           )}
         </div>
 
-        {/* Mobile: outils secondaires repliés dans un menu "⋮" */}
+        {/* Mobile: menu ⋮ */}
         <div className="md:hidden relative shrink-0">
           <button
             onClick={() => setShowMobileToolsMenu((v) => !v)}
@@ -345,20 +428,14 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
           {showMobileToolsMenu && (
             <div className="absolute right-0 top-11 w-48 bg-white rounded-lg shadow-lg py-1 z-20">
               <button
-                onClick={() => {
-                  handleToggleHealthPanel()
-                  setShowMobileToolsMenu(false)
-                }}
+                onClick={() => { handleToggleHealthPanel(); setShowMobileToolsMenu(false) }}
                 className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
               >
                 🩺 Diagnostic
               </button>
               {user?.role === 'admin' && (
                 <button
-                  onClick={() => {
-                    handleToggleUsersPanel()
-                    setShowMobileToolsMenu(false)
-                  }}
+                  onClick={() => { handleToggleUsersPanel(); setShowMobileToolsMenu(false) }}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                 >
                   👤 Utilisateurs
@@ -366,10 +443,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
               )}
               {user?.role === 'admin' && (
                 <button
-                  onClick={() => {
-                    setShowAdminPanel((v) => !v)
-                    setShowMobileToolsMenu(false)
-                  }}
+                  onClick={() => { setShowAdminPanel((v) => !v); setShowMobileToolsMenu(false) }}
                   className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
                 >
                   🛡️ Panneau Admin
@@ -380,7 +454,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
         </div>
       </div>
 
-      {mode !== 'route' && (
+      {mode !== 'route' && mode !== 'traces' && mode !== 'trace-detail' && (
         <div className="absolute top-16 left-1/2 transform -translate-x-1/2 z-10">
           <div className={`px-4 py-2 rounded-lg shadow text-white font-medium ${mode === 'add-road' ? 'bg-green-600' : mode === 'add-place' ? 'bg-cyan-600' : 'bg-orange-600'}`}>
             {mode === 'add-road'
@@ -403,7 +477,8 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
           <LoginPanel onLogin={handleLogin} onCancel={() => setShowLoginPanel(false)} error={loginError} />
         </div>
       )}
-{showHealthPanel && (
+
+      {showHealthPanel && (
         <div
           className={
             isMobile
@@ -480,7 +555,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
                   onCalculate={handleCalculate}
                   onReset={handleReset}
                   onSelectProposal={selectProposal}
-                 onSelectPointA={handleSelectPointA}
+                  onSelectPointA={handleSelectPointA}
                   onSelectPointB={handleSelectPointB}
                   vehicleProfile={vehicleProfile}
                   onVehicleProfileChange={setVehicleProfile}
@@ -493,12 +568,41 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
                   status={journeyStatus}
                   elapsedSeconds={elapsedSeconds}
                   distanceMeters={distanceMeters}
-                  onStart={startJourney}
+                  error={journeyError}
+                  finishedTrace={finishedTrace}
+                  canStart={journeyCanStart}
+                  isLoggedIn={Boolean(user)}
+                  plannedDistanceM={selectedProposal?.route.distance_m}
+                  plannedDurationS={selectedProposal?.route.duration_s}
+                  onStart={handleStartJourney}
                   onFinish={finishJourney}
                   onReset={resetJourney}
+                  onViewDetail={handleViewFinishedDetail}
+                  onViewTraces={handleOpenTraces}
                 />
                 <LayerControl visibility={visibility} onToggle={toggleLayer} />
               </>
+            )}
+
+            {mode === 'traces' && (
+              <MyTracesPanel
+                traces={traces}
+                loading={tracesLoading}
+                error={tracesError}
+                onFetch={fetchTraces}
+                onViewDetail={handleViewTraceDetail}
+                onClose={handleCloseTraces}
+              />
+            )}
+
+            {mode === 'trace-detail' && (
+              <TraceDetailPanel
+                trace={currentTrace}
+                loading={tracesLoading}
+                error={tracesError}
+                onBack={handleBackToTraces}
+                onClose={handleCloseTraces}
+              />
             )}
 
             {mode === 'add-road' && (
