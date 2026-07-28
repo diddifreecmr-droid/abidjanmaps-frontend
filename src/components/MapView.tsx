@@ -489,9 +489,9 @@ function MapView({
         disabled={!position}
         title="Utiliser ma position actuelle comme point de départ"
         aria-label="Utiliser ma position actuelle comme point de départ"
-        className="absolute top-24 right-2 z-10 w-9 h-9 rounded-full bg-white shadow flex items-center justify-center disabled:opacity-40 hover:bg-gray-50 transition-colors"
+        className="absolute top-32 right-2 md:top-24 z-10 w-11 h-11 md:w-9 md:h-9 rounded-full bg-white shadow flex items-center justify-center disabled:opacity-40 hover:bg-gray-50 transition-colors"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" className="md:w-[18px] md:h-[18px]">
           <path d="M12 2 L19 21 L12 17 L5 21 Z" strokeLinejoin="round" strokeLinecap="round" />
         </svg>
       </button>

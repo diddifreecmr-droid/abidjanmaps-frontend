@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useEntityHistory } from '../hooks/useEntityHistory'
+import { useIsMobile } from '../hooks/useIsMobile'
 import HistoryList from './HistoryList'
-import { EditRoadPanel } from './EditRoadPanel'
 import { EditPlacePanel } from './EditPlacePanel'
+import { EditRoadPanel } from './EditRoadPanel'
 import type { RoadUpdate } from '../api/roadsApi'
 import type { PlaceUpdate } from '../api/placesApi'
 import type { RoadRead, PlaceRead } from '../types/localData'
@@ -18,8 +19,9 @@ interface AdminValidationPanelProps {
   onRejectPlace: (id: number) => void
   onUpdateRoad: (id: number, patch: RoadUpdate) => Promise<void>
   onUpdatePlace: (id: number, patch: PlaceUpdate) => Promise<void>
-  onFocusPoint: (point: RoutePoint) => void
+onFocusPoint: (point: RoutePoint) => void
   onRefresh: () => void
+  onClose: () => void
 }
 
 function getRoadFocusPoint(road: RoadRead): RoutePoint {
@@ -38,15 +40,17 @@ export function AdminValidationPanel({
   onRejectPlace,
  onUpdateRoad,
   onUpdatePlace,
-  onFocusPoint,
+onFocusPoint,
   onRefresh,
+  onClose,
 }: AdminValidationPanelProps) {
   const safeRoads = roads || []
   const safePlaces = places || []
  const proposedRoads = safeRoads.filter((r) => r.validation_status === 'proposed')
   const proposedPlaces = safePlaces.filter((p) => p.validation_status === 'proposed')
 
-  const { load: loadHistory, getState: getHistoryState } = useEntityHistory()
+ const { load: loadHistory, getState: getHistoryState } = useEntityHistory()
+  const isMobile = useIsMobile()
   const [openHistoryKeys, setOpenHistoryKeys] = useState<Set<string>>(new Set())
 
   const [editingRoad, setEditingRoad] = useState<RoadRead | null>(null)
@@ -95,13 +99,22 @@ export function AdminValidationPanel({
     <div className="bg-white rounded-lg shadow-md p-4 max-h-96 overflow-auto">
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-800">Validation des données</h3>
-        <button
-          onClick={onRefresh}
-          disabled={loading}
-          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-        >
-          {loading ? 'Chargement...' : 'Actualiser'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Chargement...' : 'Actualiser'}
+          </button>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-lg leading-none px-1"
+            title="Fermer"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Roads Section */}
@@ -246,9 +259,14 @@ export function AdminValidationPanel({
           </div>
         )}
 </div>
-
-      {editingRoad && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+{editingRoad && (
+        <div
+          className={
+            isMobile
+              ? 'fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 overflow-y-auto py-8 px-4 [&>div]:w-full [&>div]:max-w-sm [&>div]:max-h-none'
+              : 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50'
+          }
+        >
           <EditRoadPanel
             road={editingRoad}
             onSubmit={handleSubmitRoadEdit}
@@ -259,7 +277,13 @@ export function AdminValidationPanel({
       )}
 
       {editingPlace && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div
+          className={
+            isMobile
+              ? 'fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 overflow-y-auto py-8 px-4 [&>div]:w-full [&>div]:max-w-sm [&>div]:max-h-none'
+              : 'fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50'
+          }
+        >
           <EditPlacePanel
             place={editingPlace}
             onSubmit={handleSubmitPlaceEdit}

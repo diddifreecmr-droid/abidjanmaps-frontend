@@ -14,6 +14,8 @@ import { UsersAdminPanel } from './components/UsersAdminPanel'
 import { useUsers } from './hooks/useUsers'
 import { useRoutePoints } from './hooks/useRoutePoints'
 import type { RoutePoint } from './hooks/useRoutePoints'
+import { useIsMobile } from './hooks/useIsMobile'
+import { BottomSheet } from './components/BottomSheet'
 import { useRouteProposals } from './hooks/useRouteProposals'
 import type { VehicleProfile } from './types/route'
 import { useJourneyTracking } from './hooks/useJourneyTracking'
@@ -74,7 +76,6 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
 
   const { users, loading: usersLoading, error: usersError, fetchAll: fetchUsersAll, create: createUser } = useUsers()
   const [showUsersPanel, setShowUsersPanel] = useState(false)
-
   const handleToggleUsersPanel = () => {
     setShowUsersPanel((prev) => {
       const next = !prev
@@ -82,6 +83,9 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
       return next
     })
   }
+
+  // Menu "⋮" mobile qui regroupe les outils secondaires (Diagnostic/Utilisateurs/Admin)
+  const [showMobileToolsMenu, setShowMobileToolsMenu] = useState(false)
   const [mode, setMode] = useState<AppMode>('route')
   const [showAdminPanel, setShowAdminPanel] = useState(false)
   const [showLoginPanel, setShowLoginPanel] = useState(false)
@@ -91,7 +95,7 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
   const [roadCoordinates, setRoadCoordinates] = useState<[number, number][]>([])
   const [placeCoordinate, setPlaceCoordinate] = useState<[number, number] | undefined>()
   const [reportCoordinate, setReportCoordinate] = useState<[number, number] | undefined>()
-
+  const isMobile = useIsMobile()
   // On mount: if token exists, verify it with /users/me
   useEffect(() => {
     if (isLoggedIn()) {
@@ -220,85 +224,150 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
       />
 
 {/* Top Bar */}
-      <div className="absolute top-4 left-4 right-16 z-10 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
+      <div className="absolute top-2 left-2 right-12 md:top-4 md:left-4 md:right-16 z-10 flex items-center justify-between gap-2">
+        <div className="flex items-center space-x-2 shrink-0">
           {user ? (
-            <div className="bg-white rounded-lg shadow px-3 py-2 flex items-center space-x-3">
-              <span className="text-sm font-medium">{user.email}</span>
-              <span className={`text-xs px-2 py-1 rounded ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
+            <div className="bg-white rounded-lg shadow px-2 py-2 md:px-3 flex items-center space-x-2 md:space-x-3">
+              {/* Desktop: email complet. Mobile: juste une pastille avec l'initiale, pour ne pas manger la largeur */}
+              <span className="hidden md:inline text-sm font-medium">{user.email}</span>
+              <span
+                className="md:hidden w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-semibold"
+                title={user.email}
+              >
+                {user.email.charAt(0).toUpperCase()}
+              </span>
+              <span className={`hidden md:inline text-xs px-2 py-1 rounded ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}`}>
                 {user.role}
               </span>
-              <button onClick={handleLogout} className="text-xs text-red-600 hover:text-red-800">
+              <button onClick={handleLogout} className="text-xs text-red-600 hover:text-red-800 whitespace-nowrap">
                 Déconnexion
               </button>
             </div>
           ) : (
             <button
               onClick={() => setShowLoginPanel(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-700"
+              className="bg-blue-600 text-white px-3 py-2 md:px-4 rounded-lg shadow hover:bg-blue-700 text-sm whitespace-nowrap"
             >
               Connexion
             </button>
           )}
         </div>
 
-        <div className="flex items-center space-x-2 bg-white rounded-lg shadow p-1">
+        <div className="flex items-center gap-0.5 md:space-x-2 bg-white rounded-lg shadow p-1 overflow-x-auto max-w-full">
           <button
             onClick={() => setMode('route')}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${mode === 'route' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+            title="Itinéraire"
+            className={`px-2.5 md:px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${mode === 'route' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
           >
-            Itinéraire
+            <span className="md:hidden">🧭</span>
+            <span className="hidden md:inline">Itinéraire</span>
           </button>
           {user && (
             <>
               <button
                 onClick={() => setMode('add-road')}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${mode === 'add-road' ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                title="Ajouter une route"
+                className={`px-2.5 md:px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${mode === 'add-road' ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
               >
-                + Route
+                <span className="md:hidden">🛣️</span>
+                <span className="hidden md:inline">+ Route</span>
               </button>
               <button
                 onClick={() => setMode('add-place')}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${mode === 'add-place' ? 'bg-cyan-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                title="Ajouter un lieu"
+                className={`px-2.5 md:px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${mode === 'add-place' ? 'bg-cyan-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
               >
-                + Lieu
+                <span className="md:hidden">📍</span>
+                <span className="hidden md:inline">+ Lieu</span>
               </button>
               <button
                 onClick={() => setMode('report-road')}
-                className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${mode === 'report-road' ? 'bg-orange-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
+                title="Signaler un problème"
+                className={`px-2.5 md:px-3 py-1.5 rounded text-sm font-medium transition-colors whitespace-nowrap ${mode === 'report-road' ? 'bg-orange-600 text-white' : 'text-gray-700 hover:bg-gray-100'}`}
               >
-                Signaler
+                <span className="md:hidden">⚠️</span>
+                <span className="hidden md:inline">Signaler</span>
               </button>
             </>
           )}
         </div>
 
-       <button
-          onClick={handleToggleHealthPanel}
-          className={`px-3 py-2 rounded-lg shadow text-sm transition-colors ${showHealthPanel ? 'bg-gray-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-          title="Diagnostic backend / base de données"
-        >
-          🩺 Diagnostic
-        </button>
-
-        {user?.role === 'admin' && (
+        {/* Desktop: outils secondaires affichés en permanence */}
+        <div className="hidden md:flex items-center space-x-2 shrink-0">
           <button
-            onClick={handleToggleUsersPanel}
-            className={`px-3 py-2 rounded-lg shadow text-sm transition-colors ${showUsersPanel ? 'bg-gray-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-            title="Administration des utilisateurs"
+            onClick={handleToggleHealthPanel}
+            className={`px-3 py-2 rounded-lg shadow text-sm transition-colors ${showHealthPanel ? 'bg-gray-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+            title="Diagnostic backend / base de données"
           >
-            👤 Utilisateurs
+            🩺 Diagnostic
           </button>
-        )}
 
-        {user?.role === 'admin' && (
+          {user?.role === 'admin' && (
+            <button
+              onClick={handleToggleUsersPanel}
+              className={`px-3 py-2 rounded-lg shadow text-sm transition-colors ${showUsersPanel ? 'bg-gray-700 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+              title="Administration des utilisateurs"
+            >
+              👤 Utilisateurs
+            </button>
+          )}
+
+          {user?.role === 'admin' && (
+            <button
+              onClick={() => setShowAdminPanel(!showAdminPanel)}
+              className={`px-4 py-2 rounded-lg shadow transition-colors ${showAdminPanel ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+            >
+              {showAdminPanel ? 'Fermer Admin' : 'Panneau Admin'}
+            </button>
+          )}
+        </div>
+
+        {/* Mobile: outils secondaires repliés dans un menu "⋮" */}
+        <div className="md:hidden relative shrink-0">
           <button
-            onClick={() => setShowAdminPanel(!showAdminPanel)}
-            className={`px-4 py-2 rounded-lg shadow transition-colors ${showAdminPanel ? 'bg-purple-700 text-white' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
+            onClick={() => setShowMobileToolsMenu((v) => !v)}
+            className="w-9 h-9 rounded-lg shadow bg-white text-gray-700 flex items-center justify-center text-lg"
+            title="Plus d'outils"
           >
-            {showAdminPanel ? 'Fermer Admin' : 'Panneau Admin'}
+            ⋮
           </button>
-        )}
+
+          {showMobileToolsMenu && (
+            <div className="absolute right-0 top-11 w-48 bg-white rounded-lg shadow-lg py-1 z-20">
+              <button
+                onClick={() => {
+                  handleToggleHealthPanel()
+                  setShowMobileToolsMenu(false)
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+              >
+                🩺 Diagnostic
+              </button>
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    handleToggleUsersPanel()
+                    setShowMobileToolsMenu(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  👤 Utilisateurs
+                </button>
+              )}
+              {user?.role === 'admin' && (
+                <button
+                  onClick={() => {
+                    setShowAdminPanel((v) => !v)
+                    setShowMobileToolsMenu(false)
+                  }}
+                  className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50"
+                >
+                  🛡️ Panneau Admin
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {mode !== 'route' && (
@@ -314,113 +383,147 @@ const { roads, loading: roadsLoading, fetchAll: fetchRoads, validate: validateRo
       )}
 
       {showLoginPanel && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div
+          className={
+            isMobile
+              ? 'fixed inset-0 z-50 flex items-start justify-center bg-black bg-opacity-50 overflow-y-auto py-8 px-4 [&>div]:w-full [&>div]:max-w-sm [&>div]:max-h-none'
+              : 'absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50'
+          }
+        >
           <LoginPanel onLogin={handleLogin} onCancel={() => setShowLoginPanel(false)} error={loginError} />
         </div>
       )}
-
-{(showHealthPanel || showUsersPanel || (showAdminPanel && user?.role === 'admin')) && (
-        <div className="absolute top-20 right-16 z-10 flex flex-col items-end gap-2">
-          {showHealthPanel && (
-            <HealthPanel
-              backend={healthBackend}
-              database={healthDatabase}
-              onCheck={checkHealth}
-              onClose={() => setShowHealthPanel(false)}
-            />
-          )}
-
-          {showUsersPanel && user?.role === 'admin' && (
-            <UsersAdminPanel
-              users={users}
-              loading={usersLoading}
-              error={usersError}
-              onCreate={async (u) => { await createUser(u) }}
-              onRefresh={fetchUsersAll}
-              onClose={() => setShowUsersPanel(false)}
-            />
-          )}
-
-          {showAdminPanel && user?.role === 'admin' && (
-            <div className="w-96">
-              <AdminValidationPanel
-                roads={roads}
-                places={places}
-                loading={roadsLoading || placesLoading}
-                onValidateRoad={validateRoad}
-                onRejectRoad={rejectRoad}
-                onValidatePlace={validatePlace}
-                onRejectPlace={rejectPlace}
-                onUpdateRoad={async (id, patch) => { await updateRoad(id, patch) }}
-                onUpdatePlace={async (id, patch) => { await updatePlace(id, patch) }}
-                onFocusPoint={setFocusPoint}
-                onRefresh={handleRefreshAdmin}
-              />
-            </div>
-          )}
+{showHealthPanel && (
+        <div
+          className={
+            isMobile
+              ? 'fixed inset-0 z-40 bg-white overflow-y-auto p-4 [&>div]:w-full [&>div]:max-h-none [&>div]:shadow-none [&>div]:rounded-none'
+              : 'absolute top-20 right-16 z-10'
+          }
+        >
+          <HealthPanel
+            backend={healthBackend}
+            database={healthDatabase}
+            onCheck={checkHealth}
+            onClose={() => setShowHealthPanel(false)}
+          />
         </div>
       )}
 
-      <div className="fixed md:absolute bottom-0 md:top-20 left-0 md:left-4 right-0 md:right-auto z-10 space-y-2">
-        {mode === 'route' && (
-          <>
- <SelectionPanel
-              pointA={pointA}
-              pointB={pointB}
-              loading={loading}
-              canCalculate={canCalculate}
-              proposals={proposals}
-              selectedIndex={selectedIndex}
-              errorCode={errorCode}
-              onCalculate={handleCalculate}
-              onReset={handleReset}
-              onSelectProposal={selectProposal}
-              onSelectPointA={setPointA}
-              onSelectPointB={setPointB}
-              vehicleProfile={vehicleProfile}
-              onVehicleProfileChange={setVehicleProfile}
-              vehicleWidthM={vehicleWidthM}
-              onVehicleWidthMChange={setVehicleWidthM}
-              vehicleWeightT={vehicleWeightT}
-              onVehicleWeightTChange={setVehicleWeightT}
-            />
-            <JourneyTracker
-              status={journeyStatus}
-              elapsedSeconds={elapsedSeconds}
-              distanceMeters={distanceMeters}
-              onStart={startJourney}
-              onFinish={finishJourney}
-              onReset={resetJourney}
-            />
-            <LayerControl visibility={visibility} onToggle={toggleLayer} />
-          </>
-        )}
-
-        {mode === 'add-road' && (
-          <AddRoadPanel
-            onSubmit={handleAddRoad}
-            onCancel={handleCancelAdd}
-            selectedCoordinates={roadCoordinates.length > 0 ? roadCoordinates : undefined}
+      {showUsersPanel && user?.role === 'admin' && (
+        <div
+          className={
+            isMobile
+              ? 'fixed inset-0 z-40 bg-white overflow-y-auto p-4 [&>div]:w-full [&>div]:max-h-none [&>div]:shadow-none [&>div]:rounded-none'
+              : 'absolute top-20 right-16 z-10'
+          }
+        >
+          <UsersAdminPanel
+            users={users}
+            loading={usersLoading}
+            error={usersError}
+            onCreate={async (u) => { await createUser(u) }}
+            onRefresh={fetchUsersAll}
+            onClose={() => setShowUsersPanel(false)}
           />
-        )}
+        </div>
+      )}
 
-        {mode === 'add-place' && (
-          <AddPlacePanel
-            onSubmit={handleAddPlace}
-            onCancel={handleCancelAdd}
-            selectedCoordinate={placeCoordinate}
-          />
-        )}
-
-        {mode === 'report-road' && (
-          <RouteReportPanel
+      {showAdminPanel && user?.role === 'admin' && (
+        <div
+          className={
+            isMobile
+              ? 'fixed inset-0 z-40 bg-white overflow-y-auto p-4 [&>div]:w-full [&>div]:max-h-none [&>div]:shadow-none [&>div]:rounded-none'
+              : 'absolute top-20 right-16 z-10 w-96'
+          }
+        >
+          <AdminValidationPanel
             roads={roads}
-            selectedPoint={reportCoordinate ? { lng: reportCoordinate[0], lat: reportCoordinate[1] } : undefined}
-            onSubmit={handleAddRouteReport}
-            onCancel={handleCancelAdd}
+            places={places}
+            loading={roadsLoading || placesLoading}
+            onValidateRoad={validateRoad}
+            onRejectRoad={rejectRoad}
+            onValidatePlace={validatePlace}
+            onRejectPlace={rejectPlace}
+            onUpdateRoad={async (id, patch) => { await updateRoad(id, patch) }}
+            onUpdatePlace={async (id, patch) => { await updatePlace(id, patch) }}
+            onFocusPoint={setFocusPoint}
+            onRefresh={handleRefreshAdmin}
+            onClose={() => setShowAdminPanel(false)}
           />
-        )}
-      </div>
+        </div>
+      )}
+
+      {(() => {
+        const panelContent = (
+          <>
+            {mode === 'route' && (
+              <>
+                <SelectionPanel
+                  pointA={pointA}
+                  pointB={pointB}
+                  loading={loading}
+                  canCalculate={canCalculate}
+                  proposals={proposals}
+                  selectedIndex={selectedIndex}
+                  errorCode={errorCode}
+                  onCalculate={handleCalculate}
+                  onReset={handleReset}
+                  onSelectProposal={selectProposal}
+                  onSelectPointA={setPointA}
+                  onSelectPointB={setPointB}
+                  vehicleProfile={vehicleProfile}
+                  onVehicleProfileChange={setVehicleProfile}
+                  vehicleWidthM={vehicleWidthM}
+                  onVehicleWidthMChange={setVehicleWidthM}
+                  vehicleWeightT={vehicleWeightT}
+                  onVehicleWeightTChange={setVehicleWeightT}
+                />
+                <JourneyTracker
+                  status={journeyStatus}
+                  elapsedSeconds={elapsedSeconds}
+                  distanceMeters={distanceMeters}
+                  onStart={startJourney}
+                  onFinish={finishJourney}
+                  onReset={resetJourney}
+                />
+                <LayerControl visibility={visibility} onToggle={toggleLayer} />
+              </>
+            )}
+
+            {mode === 'add-road' && (
+              <AddRoadPanel
+                onSubmit={handleAddRoad}
+                onCancel={handleCancelAdd}
+                selectedCoordinates={roadCoordinates.length > 0 ? roadCoordinates : undefined}
+              />
+            )}
+
+            {mode === 'add-place' && (
+              <AddPlacePanel
+                onSubmit={handleAddPlace}
+                onCancel={handleCancelAdd}
+                selectedCoordinate={placeCoordinate}
+              />
+            )}
+
+            {mode === 'report-road' && (
+              <RouteReportPanel
+                roads={roads}
+                selectedPoint={reportCoordinate ? { lng: reportCoordinate[0], lat: reportCoordinate[1] } : undefined}
+                onSubmit={handleAddRouteReport}
+                onCancel={handleCancelAdd}
+              />
+            )}
+          </>
+        )
+
+        return isMobile ? (
+          <BottomSheet>{panelContent}</BottomSheet>
+        ) : (
+          <div className="absolute top-20 left-4 z-10 space-y-2">{panelContent}</div>
+        )
+      })()}
     </div>
   )
 }

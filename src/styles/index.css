@@ -7,3 +7,18 @@ html, body, #root {
   margin: 0;
   padding: 0;
 }
+
+/* Agrandit les contrôles MapLibre (+/-, boussole) sur mobile pour un doigt,
+   sans toucher au comportement desktop (souris, plus précis). */
+@media (max-width: 767px) {
+  .maplibregl-ctrl-group button {
+    width: 44px !important;
+    height: 44px !important;
+  }
+  .maplibregl-ctrl-group button + button {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  .maplibregl-ctrl-icon {
+    background-size: 22px 22px !important;
+  }
+}
