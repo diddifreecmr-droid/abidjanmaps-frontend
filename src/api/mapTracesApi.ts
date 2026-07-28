@@ -7,7 +7,8 @@ import type {
   MapTraceFinishPayload,
   MapTracePosition,
   MapTracePositionCreate,
-} from '../types/mapTrace'
+  MapTraceAnalysis,
+} from '../types/mapTracesApi'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL
 
@@ -66,7 +67,7 @@ export async function finishMapTrace(
   const response = await fetch(`${API_BASE_URL}/api/v1/map-traces/${traceId}/finish`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify(payload ?? null),
+    body: JSON.stringify(payload ?? {}),
   })
   return handleResponse<MapTrace>(response)
 }
@@ -83,4 +84,22 @@ export async function fetchMapTraces(): Promise<MapTrace[]> {
     headers: getAuthHeaders(),
   })
   return handleResponse<MapTrace[]>(response)
+}
+
+// --- Phase 3 V2 ---
+
+export async function analyzeMapTrace(traceId: number): Promise<MapTraceAnalysis> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/map-traces/${traceId}/analyze`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({}),
+  })
+  return handleResponse<MapTraceAnalysis>(response)
+}
+
+export async function fetchMapTraceAnalysis(traceId: number): Promise<MapTraceAnalysis> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/map-traces/${traceId}/analysis`, {
+    headers: getAuthHeaders(),
+  })
+  return handleResponse<MapTraceAnalysis>(response)
 }

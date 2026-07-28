@@ -78,10 +78,14 @@ function App() {
   const {
     traces,
     currentTrace,
+    currentAnalysis,
     loading: tracesLoading,
+    analysisLoading,
     error: tracesError,
+    analysisError,
     fetchAll: fetchTraces,
     fetchOne: fetchTrace,
+    analyzeTrace,
     clearCurrent: clearCurrentTrace,
   } = useMapTraces()
 
@@ -202,6 +206,13 @@ function App() {
       handleViewTraceDetail(finishedTrace.id)
     }
   }, [finishedTrace, handleViewTraceDetail])
+
+  // Phase 3 V2: lancer l'analyse de la trace courante
+  const handleAnalyzeCurrentTrace = useCallback(() => {
+    if (currentTrace) {
+      analyzeTrace(currentTrace.id)
+    }
+  }, [currentTrace, analyzeTrace])
 
   // Phase 3: ouvrir la liste des collectes
   const handleOpenTraces = useCallback(() => {
@@ -600,6 +611,10 @@ function App() {
                 trace={currentTrace}
                 loading={tracesLoading}
                 error={tracesError}
+                analysis={currentAnalysis}
+                analysisLoading={analysisLoading}
+                analysisError={analysisError}
+                onAnalyze={handleAnalyzeCurrentTrace}
                 onBack={handleBackToTraces}
                 onClose={handleCloseTraces}
               />

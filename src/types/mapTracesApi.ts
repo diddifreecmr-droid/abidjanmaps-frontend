@@ -57,3 +57,39 @@ export interface MapTracePositionCreate {
 export interface MapTraceFinishPayload {
   finished_at?: string | null
 }
+
+// --- Phase 3 V2 : Analyse des traces GPS ---
+
+export type QualityLabel = 'good' | 'average' | 'poor'
+export type AnalysisRecommendation = 'ok' | 'review_needed' | 'discard'
+
+export interface MapTraceAnalysisEvent {
+  type: string
+  severity: number
+  message: string
+}
+
+export interface MapTraceAnalysis {
+  trace_id: number
+  status: string
+  points_count: number | null
+  usable_points_count: number | null
+  quality_score: number | null
+  quality_label: QualityLabel | null
+  actual_distance_m: number | null
+  actual_duration_s: number | null
+  average_speed_kmh: number | null
+  phone_average_speed_kmh: number | null
+  moving_time_s: number | null
+  stopped_time_s: number | null
+  max_speed_kmh: number | null
+  gps_gap_count: number | null
+  suspicious_jump_count: number | null
+  planned_distance_m: number | null
+  planned_duration_s: number | null
+  distance_delta_m: number | null
+  duration_delta_s: number | null
+  duration_ratio: number | null
+  detected_events: MapTraceAnalysisEvent[]
+  recommendation: AnalysisRecommendation | null
+}
